@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Streamlabs OBS Plugin Version Explorer</title>
+</head>
+<body>
+    <h1>OBS Plugin Version Explorer</h1>
+    <div>
+        <label for="versionSelect">Select OBS Version:</label>
+        <select id="versionSelect">
+            <option value="">--Please choose an OBS Version--</option>
+        </select>
+    </div>
+    <div>
+        <label for="revisionSelect">Select Revision:</label>
+        <select id="revisionSelect" disabled>
+            <option value="">--First choose an OBS Version--</option>
+        </select>
+    </div>
+    <div id="commitShas"></div>
+
+    <script>
+        const dataUrl = 'https://slobs-cdn.streamlabs.com/obsplugin/meta/internal_meta.json';
+
+        async function fetchData(url) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+        }
+
+        function updateVersionSelect(data) {
+            const versionSelect = document.getElementById('versionSelect');
+            const uniqueVersions = [...new Set(data.map(item => item.branchName))];
+
+            uniqueVersions.forEach(version => {
+                const option = document.createElement('option');
+                option.value = version;
+                option.textContent = `OBS Version ${version}`;
+                versionSelect.appendChild(option);
+            });
+        }
+
+        function updateRevisionSelect(data, selectedVersion) {
+            const revisionSelect = document.getElementById('revisionSelect');
+            revisionSelect.innerHTML = '';
+            revisionSelect.disabled = false;
+
+            const revisions = data
+                .filter(item => item.branchName === selectedVersion)
+                .map(item => item.revision)
+                .sort((a, b) => b - a);
+
+            const uniqueRevisions = [...new Set(revisions)];
+
+            if(uniqueRevisions.length === 1) {
+                const option = document.createElement('option');
+                option.value = uniqueRevisions[0];
+                option.textContent = `Revision ${uniqueRevisions[0]}`;
+                revisionSelect.appendChild(option);
+                revisionSelect.dispatchEvent(new Event('change'));
+            } else {
+                uniqueRevisions.forEach(revision => {
+                    const option = document.createElement('option');
+                    option.value = revision;
+                    option.textContent = `Revision ${revision}`;
+                    revisionSelect.appendChild(option);
+                });
+            }
+        }
+
+        function displayCommits(data, selectedVersion, selectedRevision) {
+            const commitContainer = document.getElementById('commitShas');
+            commitContainer.innerHTML = '';
+
+            const commits = data.filter(item => item.branchName === selectedVersion && item.revision == selectedRevision)
+                                .sort((a, b) => parseInt(a.unixTimeStamp) - parseInt(b.unixTimeStamp));
+
+            commits.forEach(commit => {
+                const a = document.createElement('a');
+                const url = `https://slobs-cdn.streamlabs.com/obsplugin/intermediary_packages/slplugin-${commit.branchName}-${commit.commitSha}-signed.exe`;
+                a.setAttribute('href', url);
+                const date = new Date(commit.unixTimeStamp * 1000);
+                a.textContent = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})} - Download`;
+                commitContainer.appendChild(a);
+                commitContainer.appendChild(document.createElement('br'));
+            });
+        }
+
+        document.getElementById('versionSelect').addEventListener('change', function() {
+            const selectedVersion = this.value;
+            fetchData(dataUrl).then(data => {
+                updateRevisionSelect(data, selectedVersion);
+            });
+        });
+
+        document.getElementById('revisionSelect').addEventListener('change', function() {
+            const selectedVersion = document.getElementById('versionSelect').value;
+            const selectedRevision = this.value;
+            fetchData(dataUrl).then(data => {
+                displayCommits(data, selectedVersion, selectedRevision);
+            });
+        });
+
+        fetchData(dataUrl).then(data => {
+            updateVersionSelect(data);
+        });
+    </script>
+</body>
+</html>
