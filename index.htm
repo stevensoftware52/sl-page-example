@@ -30,6 +30,7 @@
 
         function updateVersionSelect(data) {
             const versionSelect = document.getElementById('versionSelect');
+            versionSelect.innerHTML = '<option value="">--Please choose an OBS Version--</option>'; // Reset version select
             const uniqueVersions = [...new Set(data.map(item => item.branchName))];
 
             uniqueVersions.forEach(version => {
@@ -40,9 +41,9 @@
             });
         }
 
-        function updateRevisionSelect(data, selectedVersion) {
+        async function updateRevisionSelect(data, selectedVersion) {
             const revisionSelect = document.getElementById('revisionSelect');
-            revisionSelect.innerHTML = '';
+            revisionSelect.innerHTML = '<option value="">--Please choose a Revision--</option>'; // Reset revision select
             revisionSelect.disabled = false;
 
             const revisions = data
@@ -52,23 +53,20 @@
 
             const uniqueRevisions = [...new Set(revisions)];
 
-            if(uniqueRevisions.length === 1) {
+            uniqueRevisions.forEach(revision => {
                 const option = document.createElement('option');
-                option.value = uniqueRevisions[0];
-                option.textContent = `Revision ${uniqueRevisions[0]}`;
+                option.value = revision;
+                option.textContent = `Revision ${revision}`;
                 revisionSelect.appendChild(option);
-                revisionSelect.dispatchEvent(new Event('change'));
-            } else {
-                uniqueRevisions.forEach(revision => {
-                    const option = document.createElement('option');
-                    option.value = revision;
-                    option.textContent = `Revision ${revision}`;
-                    revisionSelect.appendChild(option);
-                });
+            });
+
+            if(uniqueRevisions.length > 0) {
+                revisionSelect.value = uniqueRevisions[0]; // Preselect the first revision
+                await displayCommits(data, selectedVersion, uniqueRevisions[0]); // Automatically load commits for the first revision
             }
         }
 
-        function displayCommits(data, selectedVersion, selectedRevision) {
+        async function displayCommits(data, selectedVersion, selectedRevision) {
             const commitContainer = document.getElementById('commitShas');
             commitContainer.innerHTML = '';
 
@@ -86,19 +84,17 @@
             });
         }
 
-        document.getElementById('versionSelect').addEventListener('change', function() {
+        document.getElementById('versionSelect').addEventListener('change', async function() {
             const selectedVersion = this.value;
-            fetchData(dataUrl).then(data => {
-                updateRevisionSelect(data, selectedVersion);
-            });
+            const data = await fetchData(dataUrl);
+            await updateRevisionSelect(data, selectedVersion);
         });
 
-        document.getElementById('revisionSelect').addEventListener('change', function() {
+        document.getElementById('revisionSelect').addEventListener('change', async function() {
             const selectedVersion = document.getElementById('versionSelect').value;
             const selectedRevision = this.value;
-            fetchData(dataUrl).then(data => {
-                displayCommits(data, selectedVersion, selectedRevision);
-            });
+            const data = await fetchData(dataUrl);
+            await displayCommits(data, selectedVersion, selectedRevision);
         });
 
         fetchData(dataUrl).then(data => {
